@@ -1,4 +1,7 @@
 #pragma once
+/*
+ *Author by HUGHNew
+ */
 #include<string>
 #include<unordered_map>
 #include<iostream>
