@@ -45,6 +45,8 @@ namespace Bri{//Some subsidiary functuions
             temp.insert(t);
         return temp;
     }
+    template<typename Key,typename Value>using mp=std::make_pair<Key,Value>;
+    template<typename Key,typename Value>using um=std::unordered_map<Key,Value>;
 }
 class CsmanJson{
 private:
