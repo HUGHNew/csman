@@ -73,6 +73,7 @@ public:
     bool reboot(std::ifstream&);//reload the Csman
     bool reboot(const CsmanJson&);
     bool reboot(const std::string&);
+    bool reboot(const char*);
     bool reboot(const Json::Value&);
     bool reboot(const std::string&,const std::unordered_map<std::string,std::string>&);
     bool reboot(const std::string&,const std::map<std::string,std::string>&);
@@ -168,6 +169,9 @@ bool CsmanJson::reboot(const std::string& file,const std::unordered_map<std::str
     }
     ifs.close();
     return true;
+}
+bool CsmanJson::reboot(const char*c){
+    return reboot(std::string(c));
 }
 bool CsmanJson::reboot(const std::string& file){
     Csman.clear();
