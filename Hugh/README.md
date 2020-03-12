@@ -1,165 +1,94 @@
-头文件更新,详细如下:
-1. 更名为csj.json
-2. 将 __Null__  函数更名为 __empty__
-3. __upgrade__ 函数添加了接受 `map<std::string,std::string>` 的重载版本
-4. 增加了CsmanJson的构造函数,可以使用文件名字符串(string或者C风格)构造,若文件打开失败则CsmanJson为空
-5. 提供了== 和 = 运算符
-6. 新增reboot函数,解决了单个CsmanJson对象只能一次使用的问题
-   1. 使用方法
-   2. 传递一个CsmanJson 或者Json::Value 对象,相对于使用赋值运算符
-   3. 传递文件名字符串(string或者C风格)重新获取一个json
-      1. 可选map或无序map在reboot时更改版本信息
-重载了输入输出符
-+ 文件输入>>
-+ 输出到文件
-+ 标准输出(std::cout)
+命名空间`Csj`中有一个异常类`LogicError`用来抛出错误的路径(或者说是错误的Key)
+`Csj::Package`拥有三个数据成员:储存json的成员和、同类型的指针和一个用于判断指针是否启用的 bool 值,非`Csj::Package`类型的复制都用指针完成***(即类内部为指针行为)***
 
-构造函数(成员Json::Value 解析json的一个对象)
-+ 默认构造
-  + 空
-+ 单参数对象
+<font size=4>正常使用情况下,这个头文件的东西不会给 warning 只可能有抛异常,那多半是路径写错了</font>
 
-成员函数
-+ 无报错,但会输出(标准输出)字符串错误信息
-+ upgrade
-  + 接受无序map
-  + 直接更改对象的键值对
-  + 需要调用write函数将改动输出到json去
-+ null
-  + 判断数据成员是否为空的函数
-+ read
-  + 从文件中读取json
-  + bool(返回值类型)
-  + 接受实参为ifstream
-  + 需要手动开关文件
-+ write
-  + 输出到目标json
-  + bool
-  + 接受实参为ofstream
-  + 需要手动开关文件
-+ file_change
-  + 参数
-    + json文件路径
-    + 更改的pair
-  + bool
-  + 一步到位改写pair
+<font size=4>内部的指针从第一次使用`operator[]`调用存在`Key`后开始工作</font>
 
-#### 构造函数
 
+构造函数
 ```cpp
-  CsmanJson test;//直接声明,数据成员为空
-  if(test.file_change("csman.json",Bri::Mp<std::string,
-    std::string>("Version","1.0.0.1")))Bri::out(test,std::cout,"");
-
-  CsmanJson test1(test);
-  if(test1.Null())Bri::out("Null");
-
-  CsmanJson test2;
-  std::ifstream ifs;
-  ifs.open("csman.json");
-  ifs>>test2;
-  if(!test2.Null())Bri::out(test2);
-  ifs.close();
-  ```
-
-
-#### 复制构造函数
-```json
-  CsmanJson test1(test);
-  if(test1.Null())Bri::out("Null");//查看是否为空
-  ```
-
-#### 改当前路径下的json的标签内容,如果成功更改则输出json内容(以csman.json为例)
+Package(){}
+Package(const Package&p)
+```
+读写类
 ```cpp
-  CsmanJson test;
-  if(test.file_change("csman.json",Bri::Mp<std::string,
-    std::string>("BaseUrl","baidu.com")))Bri::out(test,std::cout,"");
-  ```
-##### 文件操作后的结果：
-  changes from(原json文件)
-```json
-  {
-     "BaseUrl" : "pornhub.com",
-     "Platform" : "Linux_GCC_AMD64",
-     "Version" : "1.0.0.1"
-  }
-  ```
-    to(更新后json文件)
-```json
-  {
-     "BaseUrl" : "baidu.com",
-     "Platform" : "Linux_GCC_AMD64",
-     "Version" : "1.0.0.1"
-  }
-  ```
+//----------写-------------
+write()//第一个参数为输出流,第二可选参数为可选参数(即输出对象)默认为存储成员,可用Inner()函数改为输出指针所指对象
+write(std::cout);//将储存的json输出
+write(std::cout,PACKAGE.Inner());//输出指针所指对象
+//---------读----------
+read(ifs)//ifs 为文件输入流
+read(PACKAGE a)//用另一个package类对象初始化
+//当然重定向符(<< >>)都可以用
+operator[]//string 或 const char* 使用前需要知道value是否存在
+//或者用来创造对象 行为类似于 map
+//改值自己小心使用
 
-#### 使用文件流写入数据
-```cpp
-  CsmanJson test2;
-  std::ifstream ifs;
-  ifs.open("csman.json");
-  ifs>>test2;//test2.read(ifs);//等价形式
-  if(!test2.Null())Bri::out(test2);
-  ifs.close();
-  ```
-
-#### 更改json内容(下面两种方式)
-
- 1. 直接调用file_change更改内容(单条)
-
-```cpp
-//如若需要发issue或者call我添加无序map接口或者initializer_list接口
-CsmanJson test;
-if(test.file_change("csman.json",Bri::Mp<std::string,std::string>("BaseUrl","baidu.com")))std::cout<<"成功";
+operator=//使用来改值
+//
 ```
 
-2. 调用read write
+<font size=4 color=#ff0000>目录下沉(进去对象内部)</font>
+
 ```cpp
-CsmanJson test;
-std::ifstream ifs;
-ifs.open("csman.json");
-if(test.read(ifs)){//read会验证文件是否打开
-    ifs.close();
-    //to do
-    /*可以手动更改信息，不过得准确
-     *也可以调用upgrade更改信息
-     */
-    //演示upgrade更新信息
-    std::unordered_map<std::string,std::string>info={/*infomation*/};//take as follows to make an example
-    //std::unordered_map<std::string,std::string>info={Bri::Mp<std::string,std::string>("BaseUrl","baidu.com")};
-    test.upgrade(info);
-    std::ofstream ofs;
-    ofs.open("csman.json");
-    if(ofs){test.write(ofs);}
-    ofs.close();
-}
-ifs.close();
-```
-
-  changes from(原json文件)
-
-```json
+//Pac中储存的 json 为 Generic.json
+Pac.Enter("Generic/cics.csbuild/Version");//必须使用路径形式 且为相对路径 (第一次可理解为 指针在根目录)
+//Pac.Inner() 为
+/*
 {
-   "BaseUrl" : "",
-   "Platform" : "Linux_GCC_AMD64",
-   "Version" : "1.0.0.1"
+    "1.0": {
+        "Dependencies": {
+            "cs.runtime": "Stable",
+            "cs.develop": "Stable"
+        },
+        "ContentUrl": "http://mirrors.covariant.cn/csman/Generic/cics.csbuild_1.0.zip"
+    }
 }
+*/
 ```
+此时可以直接修改该对象(Version 内部)
 
-to(更新后json文件)
 
-```json
-{
-   "BaseUrl" : "baidu.com",
-   "Platform" : "Linux_GCC_AMD64",
-   "Version" : "1.0.0.1"
-}
-```
+<font size=4 color=#ff0000>内部指针控制</font>
 
-#### namespace内容两个输出函数,类似于py的print,不过第二个参数是输出流对象,第三个参数才是类似于py print 的end,但只接受C风格字符串
 ```cpp
-static void out(const std::string& str,std::ostream&os=std::cout,const char*end="\n")；
-template<typename T>
-    static void out(const T& str,std::ostream&os=std::cout,const char*end="\n");
+changePoint(std::string& path)//使用绝对路径改变内部指针指向
+
+reset()//将内部指针置为nullptr
+
+Inner()//返回内部指针指向的 json value 部分 如果指针为 nullptr 则返回当前存储的整个 json 对象
 ```
->tips：可以不管大写的Um和Mp,大写的与小写的差不多,都是模板别名(不过还是推荐小写,那才是真正的别名,大写的是自己写的),um为无序map的别名,mp为make_pair的别名
+
+<font size=4 color=#ff0000>增减控制</font>
+
+
+```cpp
+ArrayMake(string Key,int index,可变参数)//增加 array index 为参数开始的下标, 若不从 0 开始 则前面用 null 补齐
+//也可以用于改值
+erase(string Key) //只要存在的东西随便删,只直接当前指针所指的对象中的 Key 只有一个参数 Key string 类型,支持相对路径行为
+//别问我其他重载和第二个参数是什么 什么都不是,什么都没有
+```
+<font size=4 color=#ff0000>成员相关</font>
+
+```cpp
+isMember()//扔个string 或者 字符串都行 判断是不是存在的对象
+
+
+GetMemberNames();
+
+GetArrayNames();
+//上面两个的返回值都是如下一行的这个东西  看函数名字就知道是干嘛的了
+std::vector<std::string>
+```
+
+<font size=4 color=#ff0000>其他控制</font>
+
+```cpp
+showInner()//返回 inner 的值
+
+empty() // 内部是否为空
+
+
+operator bool()//类类型转换函数  可用于判断 是否为空
+```
