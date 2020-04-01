@@ -1,4 +1,5 @@
-<h1>头文件"Csj.hpp"</h1>
+<h1>[[Deprecated]]</h1>
+<p>头文件"Csj.hpp"</p>
 
 
 |类||
