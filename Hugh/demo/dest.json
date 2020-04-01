@@ -1,0 +1,24 @@
+{
+	"Generic" :
+	{
+		"cics.cs" :
+		{
+			"Author" : "Covariant Institute",
+			"Description" : "Official Build System for CovScript",
+			"Stable" : "1.0",
+			"Unstable" : null,
+			"Version" :
+			{
+				"1.0" :
+				{
+					"ContentUrl" : "http://mirrors.covariant.cn/csman/Generic/cics.csbuild_1.0.zip",
+					"Dependencies" :
+					{
+						"cs.develop" : "Stable",
+						"cs.runtime" : "Stable"
+					}
+				}
+			}
+		}
+	}
+}
