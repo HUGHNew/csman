@@ -1,395 +1,184 @@
-#ifndef CSMAN_JSONCPP_DEAL_H
-#define CSMAN_JSONCPP_DEAL_H
-#include<iostream>
+#ifndef CsMAN_JSON_HPP
+#define CsMAN_JSON_HPP
 #include<json/json.h>
+//#include"csman_config_file.hpp"
 #include<fstream>
-#include<string>
-#include<exception>
-namespace Csj{
-    #define UnDefinedFunction
-    #define CsmanJsonCpp
-    #define SomethingWrong
+#include<iostream>
+namespace csman_config
+{
     /**
-     * designed for Package
-     * for throwing wrong path
+     * @brief to store a temporary JSON
+     * You can use ifstream to initialize it
+     * You can also get url and dependencies from it
     */
-
-    class LogicError:public std::exception{
-        std::string Error;
+    class JsonStorage{
+        Json::Value Cache;
     public:
-        LogicError()=default;
-        LogicError(const std::string&pr):Error(pr){}
-        LogicError(const char*pr):Error(pr){}
-        ~LogicError()=default;
-        LogicError& operator=(const LogicError& pr);
-        const char*what();
-    };
-	class CsmanJsonCpp Package{
-		private:
-            Json::Value Pack;//storage the info of the whole json
-            //std::unique_ptr<Json::Value>revise=nullptr;
-            Json::Value* revise=nullptr;// to change the value for the Pack
-            bool inner=0;
-            /** \param AbsoluteMethod if AbsoluteMethod is on search as the absoluteMethod
-             *  deal as relative otherwise
-             *  \param Revise if Revise is on ,it will change the private pointer
-             *  default as no change
-             */
-            Json::Value& UpperFind(const std::string&path,bool AbsoluteMethod=false){
-                auto pos=revise;//keep oriented pointer
-                revise=AbsoluteMethod?&Pack:revise;//change the pointer depends on the Method
-                if(revise==nullptr){//protected way to avoid nullptr->operator*
-                    revise=&Pack;//avoid nullptr
-                    inner=true;//if revise isn't nullptr, becomes inner
-                }
-                if(path.size()==1){if(AbsoluteMethod)revise=&Pack;return *revise;}//root path Safe return
-                if(path.find('/')==std::string::npos){//a simple path
-                    if(!revise->isMember(path))//Not Exists
-                        throw LogicError("The Key "+path+" Not Exists");//throw an exception
-                    return AbsoluteMethod?Pack:(*revise);//return the higher dir
-                }
-                std::string p;//to keep every path
-                for(auto point=path.begin();point!=path.end();++point){//deal every path but the last
-                    if(*point=='/'){//a path ends
-                        if(!revise->isMember(p)){revise=(pos==nullptr?&Pack:pos);throw LogicError("The Inner Key "+p+" Not Exists");}//throw error path
-                        revise=&(*revise)[p];//Enter deeper path
-                        p.clear();//clear the passing path
-                        continue;//end this loop
-                    }
-                    p+=*point;//get every char of a path
-                }
-                auto temp=revise;//keep changed REVISE or the target
-                if(pos!=nullptr)revise=pos;//if not nullptr keep the oriented value
-                else revise=&Pack;//avoid nullptr while inner is on
-                return *temp;//return the target
-            }
-            bool find(const std::string&path,bool Revise=false,bool AbsoluteMethod=false){//path is a directory
-                auto Beg=revise;//keep oriented pointer
-                Json::Value& pos=UpperFind(path,AbsoluteMethod);//get the upper dir
-                //revise=&pos;//change to search the deepest path
-                if(path.find('/')==std::string::npos){//raw path
-                    if(Revise){//will change pointer
-                        if(pos.isMember(path)){//path Exists
-                            inner=true;
-                            revise=&pos[path];
-                            return true;
-                        }//change REVISE
-                        else throw LogicError("The Inner Key "+path+" Not Exists");}//throw NOT EXISTS path
-                    revise=(Beg==nullptr?&Pack:Beg);//keep the revise unchanged if not nullptr
-                    return pos.isMember(path);
-                }
-                const std::string& p=path.substr(path.rfind('/',path.size()-1)+1,path.size()-1);//get the deepest path
-                if(!pos.isMember(p)){//path Not Exists
-                    revise=(Beg==nullptr?&Pack:Beg);//keep the revise unchanged if not nullptr
-                    throw LogicError("The Inner Key "+p+" Not Exists");
-                }
-                //if((*revise)[p].isObject())revise=&pos[p];
-                // else if((*revise)[p].isArray())throw LogicError(p+" is an Array, can't get the value of an Array");
-                //else throw LogicError("The Inner Key "+p+" isn't Object or Array!");
-                if(Revise/* &(*revise!=Pack) */){
-                    inner=true;//make sure inner is on
-                    revise=&pos[p];//change the pointer;
-                }
-                if(!Revise)revise=(Beg==nullptr?&Pack:Beg);//keep the revise unchanged if not nullptr
-                return true;
-           }
-		public:
-            Package(){}
-            Package(const Package&p):Pack(p.Pack),revise(p.revise),inner(p.inner){}
-            Package(const Json::Value&JV):Pack(JV){}
-            ~Package()=default;
-            bool ShowInner(){return inner;}
-            bool changePoint(const std::string&path);
-            /**
-             * \brief check the str is the member or not
-             * \param AbsoluteMethod if AbsoluteMethod is on search as the absoluteMethod
-             *  default as relative otherwise
-            */
-            bool isMember(const std::string&,bool AbsoluteMethod=false)noexcept;
-            /**
-             * \brief get the Names of Array in current directory
-            */
-            const std::vector<std::string> GetArrayNames();
-            /**
-             * \brief get the Names of Member in current directory
-            */
-            auto GetMemberNames()->decltype(Pack.getMemberNames());
-            /**
-             * \brief if current pointer or Pack is an array
-             * return the size
-             * return -1 otherwise
-            */
-            [[deprecated]]int arraySize();
-
-            [[deprecated]]Json::Value* LoopPos();
-            void reset(){inner=0;revise=nullptr;}//back every time if you want to change an object
-            /**
-             *  \brief
-             * return object the inner pointer points
-             * main utility is to show the pointer's content
-            */
-            const Json::Value& Inner(){
-                return inner?*revise:Pack;
-            }
-            /**
-             * \brief access the inner JSON
-             * \param path the successive Key to get
-            */
-            Package& Enter(const std::string&path);
-            /*
-            *IO part
-            * get json and output json
-            *
-            */
-            friend std::istream& operator>>(std::istream&,Package &);
-            friend std::ostream& operator<<(std::ostream&,Package &);
-            Csj::Package& read(const Csj::Package&);
-            bool read(std::ifstream&);//read from ifstream to get a json value
-			bool write(std::ostream&ofs=std::cout,const Json::Value&out=Json::Value::null)noexcept;//output a ofstream to make a json
-            Json::Value& operator[](const std::string&);
-            Json::Value& operator[](const char*);
-            Package& operator=(const Json::Value&);
-			Package& operator=(const Package&);
-            Package& operator=(Json::Value*);
-            operator bool()noexcept;
-            bool empty()noexcept;
-
-            /**
-             * add part
-             * array make
-             * \brief to make an array DON'T USE CONTAINER which is not included in JSON
-             * it can make an array or overwrite the EXISTING array
-             * \param ValueName the relative route
-             * \param index the first position for the function to add
-            */
-            template<typename type>
-            bool ArrayMake(const std::string&ValueName,int index,const type&);
-            template<typename type,typename... T>
-            bool ArrayMake(const std::string&ValueName,int index,const type&,const T&...tup);
-            /**
-             * \brief for array erase
-             * delete the index
-             * \param index remove the specific index
-            */
-            [[deprecated]]Package& UnDefinedFunction erase (int index);
-            /**
-             * \brief for other type
-             * \param key remove the key and value
-            */
-            Package& erase(const std::string&Key,bool AbsoluteMethod=false);
-    };
-std::istream& operator>>(std::istream&is,Package &pack);
-std::ostream& operator<<(std::ostream&os,Package &pack);
-	template<typename type>
-    std::ostream& out(std::ostream&os,type f);
-    template<typename type,typename... params>
-    std::ostream& out(std::ostream&os,type f,params... param);
-    template<typename type>
-    std::ostream& out(type f);
-    template<typename type,typename... params>
-    std::ostream& out(type f,params... param);
-}
-const char* Csj::LogicError::what(){
-    return Error.c_str();
-}
-Csj::LogicError& Csj::LogicError::operator=(const LogicError& pr){
-    Error=pr.Error;
-    return *this;
-}
-std::istream& Csj::operator>>(std::istream&is,Csj::Package &pack){
-    is>>pack.Pack;
-    return is;
-}
-std::ostream& Csj::operator<<(std::ostream&os,Csj::Package &pack){
-    os<<pack.Pack;
-    return os;
-}
-Json::Value& Csj::Package::operator[](const std::string&Key){
-    if(inner)return (*revise)[Key];
-    else{
-        if(Pack.isMember(Key)){
-            inner=true;
-            revise=&Pack[Key];
+        /**
+         * friend part
+        */
+        friend class JsonOp;
+        friend class JsonCombination;
+        friend class JsonDeal;
+        friend std::ostream& operator<<(std::ostream&,const JsonStorage&);
+        JsonStorage()noexcept:Cache(Json::nullValue){}
+        JsonStorage(const Json::Value&jv)noexcept:Cache(jv){}
+        JsonStorage(std::ifstream&ifs)noexcept;
+        //JsonStorage(const std::string&file)noexcept;
+        JsonStorage(const JsonStorage&jsl)noexcept:Cache(jsl.Cache){}
+        JsonStorage(JsonStorage&&jsr)noexcept{swap(jsr);}
+        JsonStorage& operator=(const JsonStorage&jsl)noexcept{Cache=jsl.Cache;return *this;}
+        JsonStorage& operator=(JsonStorage&&jsr)noexcept{jsr.swap(*this);}
+        /**
+         * @brief get the first object's Url
+         * @warning only for new package online!!!
+        */
+        std::string Url()noexcept;
+        /**
+         * @brief get the first object's Dependencies
+         * @warning only for new package online!!!
+        */
+        std::vector<std::string> Denpendencies()noexcept;
+        bool operator==(const JsonStorage&jse)noexcept{return Cache==jse.Cache;}
+        void swap(JsonStorage&js)noexcept{Cache.swap(js.Cache);}
+        inline operator bool(){return !(Cache.empty()||Cache.isNull());}
+        inline bool empty(){return Cache.empty()||Cache.isNull();}
+        void show(){
+            std::cout<<Cache<<std::endl;
         }
-        return Pack[Key];
-    }
-}
-Json::Value& Csj::Package::operator[](const char*Key){
-    return this->operator[](std::string(Key));
-}
-Csj::Package& Csj::Package::operator=(const Json::Value&value){
-    if(inner)(*revise)=value;
-    else Pack=value;
-    return *this;
-}
-Csj::Package& Csj::Package::operator=(const Csj::Package&value){
-    return *this=value;
-}
-Csj::Package& Csj::Package::operator=(Json::Value*back){
-    revise=back;
-    inner=(back==nullptr||back==&Pack?0:1);
-    return *this;
-}
-int Csj::Package::arraySize(){
-    if((inner?*revise:Pack).isArray())return (inner?*revise:Pack).size();
-    return -1;
-}
-const std::vector<std::string> Csj::Package::GetArrayNames(){
-    std::vector<std::string>Array;
-    auto&&cur=(inner?*revise:Pack);
-    for(auto&&name:GetMemberNames()){
-        if(cur[name].isArray())
-            Array.push_back(name);
-    }
-    return Array;
-}
-auto Csj::Package::GetMemberNames()->decltype(Pack.getMemberNames()){
-    Json::Value::Members Member;
-    try{Member=(inner?*revise:Pack).getMemberNames();}
-    catch(const Json::LogicError&JLE){throw LogicError(JLE.what());}
-    return Member;
-}
-bool Csj::Package::isMember(const std::string&Key,bool AbsoluteMethod)noexcept{
-    return (AbsoluteMethod?Pack:(inner?*revise:Pack)).isMember(Key);
-}
-Csj::Package::operator bool()noexcept{
-    return !(Pack.isNull()||Pack.empty());
-}
-bool Csj::Package::empty()noexcept{
-    return Pack.isNull()||Pack.empty();
-}
-Csj::Package& Csj::Package::read(const Csj::Package&other){
-    Pack=other.Pack;
-    revise=other.revise;
-    inner=other.inner;
-    return *this;
-}
-bool Csj::Package::read(std::ifstream&ifs){
-    if(ifs){
-        ifs>>Pack;
-        reset();
-    }
-    else return false;
-    return true;
-}
-bool Csj::Package::write(std::ostream&ofs,const Json::Value&out)noexcept{
-    if(ofs)
-        ofs<<(out==Json::Value::null?Pack:out);
-    else return false;
-    return true;
-}
-template<typename type>
-bool Csj::Package::ArrayMake(const std::string&ValueName,int index,const type&f){
-    auto& arr=inner?*revise:Pack;
-    try{
-        if(find(ValueName))
-            {if(!arr[ValueName].isArray())
-                return false;}
-    }
-    catch(const LogicError&){}
-    arr[ValueName][index]=Json::Value(f);
-    return true;
-}
-template<typename type,typename... T>
-bool Csj::Package::ArrayMake(const std::string&ValueName,int index,const type&f,const T&...tup){
-    auto& arr=inner?*revise:Pack;
-    try{
-        if(find(ValueName))
-            {if(!arr[ValueName].isArray())
-                return false;}
-    }
-    catch(const LogicError&){}
-    arr[ValueName][index]=Json::Value(f);
-    ArrayMake(ValueName,index+1,tup...);
-    return true;
-}
-bool Csj::Package::changePoint(const std::string&path){
-    find(path,true,true);
-    return true;
-}
-Json::Value* Csj::Package::LoopPos(){
-    if(revise!=nullptr)
-        return revise;
-    else{
-        inner=0;
-        return &Pack;
-    }
-}
-Csj::Package& Csj::Package::erase(const std::string&Key,bool AbsoluteMethod){
-    auto obj=(inner?*revise:Pack);
-    std::string p;
-    revise=(revise==nullptr?&Pack:revise);
-    inner=true;
-    //revise=&UpperFind(Key,AbsoluteMethod);
-    if(Key.find('/')==std::string::npos)//simple path
-        p=Key;//raw path
-    else{
-        revise=&UpperFind(Key);
-        p=Key.substr(Key.rfind('/',Key.size()-1)+1,Key.size());
-    }
-    if(revise->isMember(p))
-        revise->removeMember(p);
-    if(AbsoluteMethod)revise=&obj;
-    return *this;
-}
-Csj::Package& Csj::Package::Enter(const std::string&path){
-    if(!find(path,true))Csj::out("Not in");
-    return *this;
-}
-namespace Csj{
-    template<typename type>
-    std::ostream& out(std::ostream&os,type f){
-        os<<f<<std::endl;
-        return os;
-    }
-    template<typename type,typename... params>
-    std::ostream& out(std::ostream&os,type f,params... param){
-        os<<f<<std::ends;
-        out(os,param...);
-        return os;
-    }
-    template<typename type>
-    std::ostream& out(type f){
-        std::cout<<f<<std::endl;
-        return std::cout;
-    }
-    template<typename type,typename... params>
-    std::ostream& out(type f,params... param){
-        std::cout<<f<<std::ends;
-        out(std::cout,param...);
-        return std::cout;
-    }
+        /**
+         * @brief output the JSON using ostream
+        */
+        virtual void output(std::ostream&os=std::cout)noexcept{os<<Cache;}
+        virtual ~JsonStorage(){}
+    };
+    std::ostream& operator<<(std::ostream&,const JsonStorage&);
+
+    /**
+     * @brief combine two JSON
+    */
+    class JsonCombination final{
+        JsonStorage dest,src;
+    public:
+        JsonCombination()=delete;
+        /**
+         * @brief the initializer
+         * @param _des the needed JSON
+         * @param _src the JSON for some objects
+        */
+        JsonCombination(const JsonStorage&_des,const JsonStorage&_src)noexcept:dest(_des),src(_src){}
+        /**
+         * @brief to combine the two file to dest
+        */
+        const JsonStorage& operator()()noexcept;
+        /**
+         * @brief output the JSON
+        */
+        void output(std::ostream&os)noexcept{os<<dest;}
+        void output(std::ofstream&ofs)noexcept{ofs<<dest;}
+    };
+    class JsonOp:virtual public JsonStorage{
+    protected:
+        std::string Path;
+        std::string File;
+    public:
+        JsonOp()=default;
+        JsonOp(const Json::Value&jsJV)noexcept:JsonStorage(jsJV){}
+        JsonOp(const JsonOp&JO)noexcept:JsonStorage(JO.Cache),Path(JO.Path),File(JO.File){}
+        virtual ~JsonOp(){};
+    };
+    class JsonBoolOpSign{
+    public:
+        JsonBoolOpSign()=default;
+        virtual bool operator()(const std::string&Name)=0;
+    };
+
+
+    class JsonDeal{
+        JsonStorage JS;
+    public:
+        static constexpr const char* LocalName="info.json";
+        enum class MODE:short{DEL=0,ADD=1,SEARCH=4};
+        enum class VerInner:short{Url=1,Dependencies=3};
+        /**
+         * @brief using LocalName for default initialization
+        */
+        JsonDeal()noexcept{std::ifstream ifs(LocalName);ifs>>JS.Cache;}
+        /**
+         * @brief using JsonStorage for  initialization
+        */
+        JsonDeal(const JsonStorage&Js)noexcept:JS(Js){}
+        /**
+         * @brief copy constructor
+        */
+        JsonDeal(const JsonDeal&)noexcept;
+        /**
+         * @brief move constructor
+        */
+        JsonDeal(JsonDeal&&)noexcept;
+        JsonDeal(std::ifstream&ifs)noexcept:JS(ifs){}
+        JsonDeal& operator=(const JsonDeal&)noexcept;
+        JsonDeal& operator=(JsonDeal&&)noexcept;
+        bool operator==(const JsonDeal&)noexcept;
+        /**
+         * @brief Delete package
+         * all existing versions
+         * @param name the name for operatored object
+        */
+        bool Del(const std::string&name)noexcept;
+        /**
+         * @brief Delete specific version of the package
+         * do nothing if not exist
+         * @param name the name for operatored object
+         * @param version the version of specific one to operator exactly
+        */
+        bool Del(const std::string&name,const std::string&version)noexcept;
+        /**
+         * @brief Get the JSON and do some jobs
+         * available for MODE::SEARCH and MODE::DEL
+         * @param name the name for operatored object
+         * @param mod the mode option
+         * @param version the version of specific one to operator exactly
+        */
+        bool operator()(const std::string&name,MODE mod=MODE::SEARCH,const std::string&version="");
+
+        void Add(JsonStorage&)noexcept;
+        bool Search(const std::string&name)noexcept;
+        bool Search(const std::string&name,const std::string&version)noexcept;
+        /**
+         * @brief run for Dependencies and Url
+         * Don't use!
+        */
+        std::vector<std::string> InnerOp(const std::string&name,VerInner mod,const std::string&version="")noexcept;
+        /**
+         * @brief get the newer url of pack (maybe)
+        */
+        std::string Url(const std::string&name)noexcept;
+        std::string Url(const std::string&name,const std::string&version)noexcept;
+        /**
+         * @brief get the newer Dependencies of pack (maybe) if not identify the exact version
+        */
+        std::vector<std::string> Dependencies(const std::string&name,const std::string&version="")noexcept{return InnerOp(name,VerInner::Dependencies,version);}
+        /**
+         * @brief get all version of a name
+        */
+        std::vector<std::string> GetVersion(const std::string&name)noexcept;
+        /**
+         * @brief get all version of runtime
+        */
+        std::vector<std::string> GetRuntime()noexcept;
+        /**
+         * @brief get all package names of JSON
+        */
+        std::vector<std::string> GetNames()noexcept;
+        inline operator bool()noexcept{return JS.operator bool();}
+        inline bool empty()noexcept{return JS.empty();}
+        inline void swap(JsonDeal&)noexcept;
+        void output(std::ostream&os)noexcept{os<<JS;}
+        void show()noexcept{std::cout<<JS.Cache<<std::endl;}
+        ~JsonDeal(){}
+        friend std::ostream& operator<<(std::ostream&os,const JsonDeal&);
+    };
+    std::ostream& operator<<(std::ostream&os,const JsonDeal&);
 }
 #endif
-namespace{
-    short update();//update frame server
-    //*for all errors: 0 not found or existed ,in short its failed.	1 successfully	(or add more states)
-
-        /**
-         * \brief  this block is for object revise
-         *
-         *
-         */
-        template<typename T>//for local csman.json
-    bool UnDefinedFunction insert(std::vector<T>list,T element)
-    {
-        /**
-         * \brief using the vector to implement
-         * \param list the param list of vector
-         * \param element the one to search for
-         */
-        if(std::find(list.begin(),list.end(),element))
-            return 0;
-        list.push_back(element);
-            return 1;
-    }
-    template<class T>//for local csman.json
-    short UnDefinedFunction list_delete(std::vector<T>list,T element)
-    {
-        static typename std::vector<T>::iterator it;
-        if( ( it = std::find(list.begin(),list.end(),element) ) != list.end() )
-            return 0;
-        list.erase(it);
-            return 1;
-    }
-}
